@@ -1,6 +1,5 @@
 import heapq
 
-INF = float('inf')
 
 class Node:
     """센서 노드 클래스"""
@@ -9,12 +8,15 @@ class Node:
         self.data = sensor_num
 
         # 인접 노드 레퍼런스
-        self.adjacent_node = {'up':None, 'down':None, 'right':None, 'left':None, 'upstair':None, 'downstair':None}
+        self.adjacent_node = {'north':None, 'south':None, 'east':None, 'west':None, 'up':None, 'down':None}
+        self.direction_of_exit = {'north':False, 'south':False, 'east':False, 'west':False, 'up':False, 'down':False}
 
         # 다익스트라 알고리즘 쓰기위한 변수
         self.distance = float('inf')
-        self.weight = {'up':1, 'down':1, 'right':1, 'left':1, 'upstair':1, 'downstair':1}
+        self.weight = {'north':1, 'south':1, 'east':1, 'west':1, 'up':1, 'down':1}
         self.visited = False
+        self.fire = False
+        self.gass = False
 
         # BFS 쓰기위한 변수
         self.state = 0  # 불 : F | 연기 : G | 출구 : E
@@ -51,8 +53,6 @@ class Map:
 
 
                         if file_name == "exit.txt": # 출구 센서 지정
-                            # current_sensor.is_exit = True
-                            # current_sensor.distance = 0
                             current_sensor.state = 'E'
                             self.exit_node[sensor_num] = current_sensor
 
@@ -60,20 +60,22 @@ class Map:
                         if prev_sensor is not None:
 
                             if file_name == "width.txt":# 가로 연결된 센서 
-                                current_sensor.adjacent_node['right'] = prev_sensor
-                                prev_sensor.adjacent_node['left'] = current_sensor
+                                current_sensor.adjacent_node['west'] = prev_sensor
+                                prev_sensor.adjacent_node['east'] = current_sensor
 
                             elif file_name == "length.txt":   # 세로 연결된 센서
-                                current_sensor.adjacent_node['up'] = prev_sensor
-                                prev_sensor.adjacent_node['down'] = current_sensor
+                                current_sensor.adjacent_node['north'] = prev_sensor
+                                prev_sensor.adjacent_node['south'] = current_sensor
 
                             elif file_name == "stairs.txt": # 계단 센서
-                                current_sensor.adjacent_node['downstair'] = prev_sensor
-                                prev_sensor.adjacent_node['upstair'] = current_sensor
+                                current_sensor.adjacent_node['down'] = prev_sensor
+                                prev_sensor.adjacent_node['up'] = current_sensor
 
+                                # 계단 weight = 2로 설정
+                                current_sensor.weight['down'] = 2
+                                prev_sensor.weight['up'] = 2
                         
                         prev_sensor = current_sensor
-
 
     def adjacent_node_is(self, node):
         """인접노드 리턴"""
@@ -86,7 +88,6 @@ class Map:
 
         return adjacent_node
 
-
     def fire_node_is(self):
         """불난노드 리턴"""
         fired_node = {}
@@ -97,13 +98,11 @@ class Map:
         
         return fired_node
         
-
     def set_state_to_0(self):
         """모든 노드 state 0으로"""
         for num in self.sensor_map:
             if self.sensor_map[num].state != 'E' and self.sensor_map[num].state != 'F' and self.sensor_map[num].state != 'G':
                 self.sensor_map[num].state = 0
-
 
     def set_state(self):
         """각 노드 state 값 지정"""
@@ -127,55 +126,57 @@ class Map:
                         
             current_nodes = temp
 
-
-    def set_visited_false(self):
+    def set_all_visited_false(self):
         for node in self.sensor_map.values():
             node.visited = False
 
+    def set_distance_dijkstra(self):
+        """다익스트라 알고리즘으로 노드의 distance 설정"""
+        for start_num in self.exit_node:
+            self.set_all_visited_false()
+            queue = []
 
-    def dijkstra(self, start_num):
-        self.set_visited_false()
-        queue = []
+            # 우선순위 큐에 들어가는 우선순위는 노드의 distance 값으로 한다.
+            # 시작 노드를 큐에 넣고 distance는 0으로 한다. 큐에 넣었으니 visited = True로 한다.
+            start_node = self.sensor_map[start_num]
+            start_node.distance = 0
+            heapq.heappush(queue, (start_node.distance, start_node.data))
+            start_node.visited = True
 
-        # 우선순위 큐에 들어가는 우선순위는 노드의 distance 값으로 한다.
-        # 시작 노드를 큐에 넣고 distance는 0으로 한다. 큐에 넣었으니 visited = True로 한다.
-        start_node = self.sensor_map[start_num]
-        start_node.distance = 0
-        heapq.heappush(queue, (start_node.distance, start_node.data))
-        start_node.visited = True
+            while queue:    # 큐가 빌 때 까지 -> 모든 노드를 방문할 때 까지
 
-        print("출구 노드 :", start_node.data, start_node.visited)
+                # 현재 노드에 큐에서 우선순위가 가장 높은 큐를 넣는다.
+                current_node = self.sensor_map[heapq.heappop(queue)[1]]
 
-        while queue:    # 큐가 빌 때 까지 -> 모든 노드를 방문할 때 까지
+                # 현재 노드의 인접노드 중 방문하지 않은 노드를 불러온다.
 
-            # 현재 노드에 큐에서 우선순위가 가장 높은 큐를 넣는다.
-            current_node = self.sensor_map[heapq.heappop(queue)[1]]
+                for adjacent_direction, adjacent_node in current_node.adjacent_node.items():
+                    
+                    if adjacent_node is not None and adjacent_node.visited is False and adjacent_node.fire is False and adjacent_node.distance > current_node.distance + current_node.weight[adjacent_direction]:
+                        adjacent_node.distance = current_node.distance + current_node.weight[adjacent_direction]
 
-            # 현재 노드의 인접노드 중 방문하지 않은 노드를 불러온다.
-
-            for adjacent_direction, adjacent_node in current_node.adjacent_node.items():
-                
-                if adjacent_node is not None and adjacent_node.visited is False and adjacent_node.distance > current_node.distance + current_node.weight[adjacent_direction]:
-                    adjacent_node.distance = current_node.distance + current_node.weight[adjacent_direction]
-
-                    heapq.heappush(queue, (adjacent_node.distance, adjacent_node.data))
-                    adjacent_node.visited = True
-
-
-    def set_distance(self):
-        for exit_node in self.exit_node:
-            self.dijkstra(exit_node)
-
+                        heapq.heappush(queue, (adjacent_node.distance, adjacent_node.data))
+                        adjacent_node.visited = True
 
     def set_fire(self, sensor_num):
         """센서에서 불 감지 시 실행"""
         self.sensor_map[sensor_num].state = 'F'
-
+        self.sensor_map[sensor_num].fire = True
 
     def set_gass(self, sensor_num):
         """센서에서 가스 감지 시 실행"""
         self.sensor_map[sensor_num].state = 'G'
+        self.sensor_map[sensor_num].gass = True
 
+    def direction_of_exit(self):
+        """각 노드에서 어느방향으로 탈출해야 할 지 set"""
+
+        for current_num, current_node in self.sensor_map.items():   # 현재 노드
+            
+            for direction, adjacent_node in current_node.adjacent_node.items(): # 현재 노드의 주변 노드
+
+                if adjacent_node is not None and adjacent_node.distance < current_node.distance:
+                    current_node.direction_of_exit[direction] = True
 
     def __str__(self):
         """센서맵의 센서들 문자열 리턴"""
