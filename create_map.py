@@ -5,21 +5,19 @@ INF = float('inf')
 class Node:
     """센서 노드 클래스"""
     def __init__(self, sensor_num):
-        # 센서 위치값
+        # 센서 번호
         self.data = sensor_num
 
         # 인접 노드 레퍼런스
         self.adjacent_node = {'up':None, 'down':None, 'right':None, 'left':None, 'upstair':None, 'downstair':None}
-        self.adjacent_node_distance = {'up':float('inf'), 'down':float('inf'), 'right':float('inf'), 'left':float('inf'), 'upstair':float('inf'), 'downstair':float('inf')}
-        self.state = 0  # 불 : F | 연기 : G | 출구 : E
 
+        # 다익스트라 알고리즘 쓰기위한 변수
         self.distance = float('inf')
+        self.weight = {'up':1, 'down':1, 'right':1, 'left':1, 'upstair':1, 'downstair':1}
+        self.visited = False
 
-    def set_distance(self, num):
-        """노드에서 인접노드까지의 거리"""
-        if(self.distance > num):
-            self.distance = num
-
+        # BFS 쓰기위한 변수
+        self.state = 0  # 불 : F | 연기 : G | 출구 : E
 
 
 class Map:
@@ -54,7 +52,7 @@ class Map:
 
                         if file_name == "exit.txt": # 출구 센서 지정
                             # current_sensor.is_exit = True
-                            current_sensor.distance = 0
+                            # current_sensor.distance = 0
                             current_sensor.state = 'E'
                             self.exit_node[sensor_num] = current_sensor
 
@@ -130,43 +128,43 @@ class Map:
             current_nodes = temp
 
 
-    def dijkstra_to_set_state(self, exit_node):
-        """하나의 출구로부터 모든 노드의 최단거리를 찾는 알고리즘 
-            다익스트라로 노드 디스턴스 설정"""
-        distances ={}
-        for sensor_num in self.sensor_map:
-            distances[sensor_num] = self.sensor_map[sensor_num].distance
+    def set_visited_false(self):
+        for node in self.sensor_map.values():
+            node.visited = False
 
+
+    def dijkstra(self, start_num):
+        self.set_visited_false()
         queue = []
-        # 시작노드(출구노드)의 번호를 우선순위 큐에 넣는다.
-        heapq.heappush(queue, [distances[exit_node], exit_node])
+
+        # 우선순위 큐에 들어가는 우선순위는 노드의 distance 값으로 한다.
+        # 시작 노드를 큐에 넣고 distance는 0으로 한다. 큐에 넣었으니 visited = True로 한다.
+        start_node = self.sensor_map[start_num]
+        start_node.distance = 0
+        heapq.heappush(queue, (start_node.distance, start_node.data))
+        start_node.visited = True
+
+        print("출구 노드 :", start_node.data, start_node.visited)
+
+        while queue:    # 큐가 빌 때 까지 -> 모든 노드를 방문할 때 까지
+
+            # 현재 노드에 큐에서 우선순위가 가장 높은 큐를 넣는다.
+            current_node = self.sensor_map[heapq.heappop(queue)[1]]
+
+            # 현재 노드의 인접노드 중 방문하지 않은 노드를 불러온다.
+
+            for adjacent_direction, adjacent_node in current_node.adjacent_node.items():
+                
+                if adjacent_node is not None and adjacent_node.visited is False and adjacent_node.distance > current_node.distance + current_node.weight[adjacent_direction]:
+                    adjacent_node.distance = current_node.distance + current_node.weight[adjacent_direction]
+
+                    heapq.heappush(queue, (adjacent_node.distance, adjacent_node.data))
+                    adjacent_node.visited = True
 
 
-        while queue:
-
-            # 힙에서 가장 우선순위가 높은 데이터 꺼내옴
-            current_distance, current_node_num = heapq.heappop(queue)
-
-            if distances[current_node_num] < current_distance:
-                continue
-
-            for adjacent_node_num in self.adjacent_node_is(self.sensor_map[current_node_num]):
-                distance = current_distance + 1
-
-                if distance < distances[adjacent_node_num]:
-                    distances[adjacent_node_num] = distance
-                    heapq.heappush(queue, [distance, adjacent_node_num])
-                    print(queue)
-
-        return distances    # 딕셔너리
-
-
-    # def set_weight(self):
-    #     for exit_num, exit_node in self.exit_node:
-    #         result = self.dijkstra_to_set_state(exit_num, self.adjacent_node_is(exit_node))
-
-    #         for sensor_num in self.sensor_map:
-    #             self.sensor_map[sensor_num].state = sensor_map[sensor_num].set_distance(result[i])
+    def set_distance(self):
+        for exit_node in self.exit_node:
+            self.dijkstra(exit_node)
 
 
     def set_fire(self, sensor_num):
