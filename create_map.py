@@ -1,5 +1,5 @@
 import heapq
-
+from collections import deque
 
 class Node:
     """센서 노드 클래스"""
@@ -27,6 +27,8 @@ class Map:
     def __init__(self):
         self.sensor_map = {}
         self.exit_node = {}
+        self.fire_node = {}
+        self.gass_node = {}
 
     def create_sensor_map(self, length_file, width_file, stairs_file, exit_file):
         """센서의 고유번호, 관계, 위치가 저장된 파일을 전달하면 그래프화 하고 sensor_map에 저장."""
@@ -39,6 +41,7 @@ class Map:
 
                 for line in sensor_file:
                     
+                    # 파일 입력받을 때 스플릿
                     raw_data = line.strip().split("-")
                     prev_sensor = None
 
@@ -77,26 +80,17 @@ class Map:
                         
                         prev_sensor = current_sensor
 
+    """DKA"""
     def adjacent_node_is(self, node):
         """인접노드 리턴"""
         adjacent = node.adjacent_node
         adjacent_node = {}
 
-        for check in adjacent:
-            if adjacent[check] is not None:
-                adjacent_node[adjacent[check].data] = adjacent[check]
+        for direction, node in adjacent.items():
+            if adjacent[direction] is not None:
+                adjacent_node[direction] = node
 
         return adjacent_node
-
-    def fire_node_is(self):
-        """불난노드 리턴"""
-        fired_node = {}
-
-        for node in self.sensor_map.values():
-            if node.state == 'F' or node.state == 'G':
-                fired_node[node.data] = node
-        
-        return fired_node
         
     def set_state_to_0(self):
         """모든 노드 state 0으로"""
@@ -126,7 +120,11 @@ class Map:
                         
             current_nodes = temp
 
+
+
+    """JSA"""
     def set_all_visited_false(self):
+        """모든 노드의 방문표시 False로"""
         for node in self.sensor_map.values():
             node.visited = False
 
@@ -158,25 +156,53 @@ class Map:
                         heapq.heappush(queue, (adjacent_node.distance, adjacent_node.data))
                         adjacent_node.visited = True
 
+    def direction_of_exit(self, search_node = None):
+        """노드에서 어느방향으로 탈출해야 할 지 set"""
+        if search_node is None:
+            search_node = self.sensor_map
+
+        for current_num, current_node in search_node.items():   # 현재 노드
+
+            for direction, adjacent_node in current_node.adjacent_node.items(): # 현재 노드의 주변 노드
+
+                if adjacent_node is not None and adjacent_node.distance < current_node.distance:
+                    current_node.direction_of_exit[direction] = True
+
+    def re_set_distance(self):
+        """불이 감지됐을 떄 불에서부터 다시 계산한다."""
+        # 확인한 노드 (리턴해야함)
+        checked_node = {}
+
+        # 불과 인접한 노드
+        fire_ad_node = deque()
+
+        for current_node in self.fire_node.values():
+            for node in self.adjacent_node_is(current_node).values():
+                if node.fire is False:         
+                    fire_ad_node.append(node)
+
+        while fire_ad_node:
+            node = fire_ad_node.popleft()
+            for direction, ad_node in self.adjacent_node_is(node).items():
+                if node.distance - ad_node.distance <= -1:
+                    node.distance += 2 * node.weight[direction]
+                    fire_ad_node.append(ad_node)
+                    checked_node[node.data] = node
+
+        return checked_node
+
     def set_fire(self, sensor_num):
         """센서에서 불 감지 시 실행"""
         self.sensor_map[sensor_num].state = 'F'
         self.sensor_map[sensor_num].fire = True
+        self.sensor_map[sensor_num].distance = float('inf')
+        self.fire_node[sensor_num] = self.sensor_map[sensor_num]
 
     def set_gass(self, sensor_num):
         """센서에서 가스 감지 시 실행"""
         self.sensor_map[sensor_num].state = 'G'
         self.sensor_map[sensor_num].gass = True
-
-    def direction_of_exit(self):
-        """각 노드에서 어느방향으로 탈출해야 할 지 set"""
-
-        for current_num, current_node in self.sensor_map.items():   # 현재 노드
-            
-            for direction, adjacent_node in current_node.adjacent_node.items(): # 현재 노드의 주변 노드
-
-                if adjacent_node is not None and adjacent_node.distance < current_node.distance:
-                    current_node.direction_of_exit[direction] = True
+        self.gass_node[sensor_num] = self.sensor_map[sensor_num]
 
     def __str__(self):
         """센서맵의 센서들 문자열 리턴"""

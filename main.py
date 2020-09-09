@@ -16,7 +16,7 @@ def print_state(sensor_map):
             if boolean:
                 adjacent_list.append(adjacent)
 
-        print("노드번호 :", key, value.distance)
+        print("노드번호 :", key, "Distance :", value.distance)
         print("출구방향 :", direction_list)
         print("연결된 노드 :", adjacent_list)
         print()
@@ -28,26 +28,26 @@ def print_all_adjacent_node(sensor_map):
         print(key, adjacent_node_is(sensor_map[key]).keys())
 
 
-""" 테스트 라인 """
-print('\n\n')
-knu = Map()
-knu.create_sensor_map("length.txt", "width.txt", "stairs.txt", "exit.txt")
-knu.set_fire('2208')
-
 
 start = time.time()
 
+""" 테스트 라인 """
+print('\n\n')
+knu = Map()
+knu.create_sensor_map('length.txt', 'width.txt', 'stairs.txt', 'exit.txt')
 
+"""초기 Distance 설정 (불이 안 난 상황)"""
 knu.set_distance_dijkstra()
 knu.direction_of_exit()
 
 
-print("출구노드 :", knu.exit_node.keys(), "\n")
+"""화재 감지"""
+knu.set_fire('2203')
+knu.re_set_distance()   # 불을 감지하면 다시 distance 설정하고
+knu.direction_of_exit(knu.re_set_distance()) # 노드 방향 다시 설정
+
 print_state(knu.sensor_map)
 
+print("출구노드 :", knu.exit_node.keys(), "\n")
 
 print(f"\n\nset_state 걸린시간 : {time.time() - start}")
-print("불난 노드 :", knu.fire_node_is().keys())
-
-
-

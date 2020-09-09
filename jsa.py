@@ -2,6 +2,7 @@ import numpy as np
 import heapq
 node_list = []
 count = -1
+
 class Node (object):
     def __init__(self, x,y,z,num):
         self.location = np.array([x,y,z])
@@ -110,7 +111,70 @@ def dijkstra(start, linked_node_lis):
 
     return distances
 
-    
+def fire_test(fire_node_num, send_node_num1, send_node_num2, node, linked_node_list):
+    queue = []
+    del_list = []
+    fire_start = fire_node_num
+    send1 = send_node_num1
+    send2 = send_node_num2
+
+    node[fire_node_num].distance = float('inf')
+
+    if fire_node_num not in fire_place_num:
+        fire_place_num.append(fire_node_num)
+
+    for i in linked_node_list[send2]:
+        if i != send1 and i not in fire_place_num:
+            queue.insert(0,i)
+
+    for i in queue:
+        substract = []
+        node_list = []
+        shortest_node_num = []
+
+        for j in linked_node_list[i]:
+            node_list.append(j)
+            if j != send2:
+                substract.append(node[j].distance - node[i].distance)
+            else:
+                substract.append(float('inf'))
+
+        if min(substract) != -1 or node[i].exit_diret_num != substract.count(-1):
+
+            node[i].exit_diret = []
+            shortest_distance_node_index = [i for i, value in enumerate(substract) if value == min(substract)]
+
+            for k in shortest_distance_node_index:
+                shortest_node_num.append(node_list[k])
+
+            if node[i].forward != None and node[i].forward.index in shortest_node_num:
+                node[i].exit_diret.append('forward')
+
+            if node[i].backward != None and node[i].backward.index in shortest_node_num:
+                node[i].exit_diret.append('backward')
+
+            if node[i].right != None and node[i].right.index in shortest_node_num:
+                node[i].exit_diret.append('right')
+
+            if node[i].left != None and node[i].left.index in shortest_node_num:
+                node[i].exit_diret.append('left')
+
+            if node[i].up != None and node[i].up.index in shortest_node_num:
+                node[i].exit_diret.append('up')
+                
+            if node[i].down != None and node[i].down.index in shortest_node_num:
+                node[i].exit_diret.append('down')
+            node[i].set_exit_diret_num()
+        else:
+            del_list.append(i)
+
+    for i in del_list:
+        queue.remove(i)
+        
+    for i in queue:
+        fire_test(fire_start, send2, i, node, linked_node_list)
+
+
 def set_weight(node, exit_list):
     for e in exit:
         result = dijkstra(e, linked_node_list)
